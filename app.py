@@ -41,7 +41,22 @@ with st.form("order_form"):
     order_protocol = st.selectbox("Order Protocol", [1, 2, 3, 4, 5, 6, 7])
     store_primary_category = st.selectbox(
         "Store Category",
-        ["american", "pizza", "asian", "mexican", "japanese", "italian", "fastfood"]
+        ["american", "mexican", "unknown", "indian", "italian", "sandwich",
+            "thai", "cafe", "salad", "pizza", "chinese", "singaporean",
+            "burger", "breakfast", "mediterranean", "japanese", "greek",
+            "catering", "filipino", "convenience-store", "other", "korean",
+            "vegan", "asian", "barbecue", "fast", "dessert", "smoothie",
+            "seafood", "vietnamese", "cajun", "steak", "middle-eastern",
+            "soup", "vegetarian", "persian", "sushi", "latin-american",
+            "hawaiian", "chocolate", "burmese", "british", "nepalese", "pasta",
+            "alcohol", "dim-sum", "peruvian", "turkish", "malaysian",
+            "ethiopian", "afghan", "bubble-tea", "german", "french",
+            "caribbean", "gluten-free", "comfort-food", "gastropub",
+            "pakistani", "moroccan", "spanish", "southern", "tapas", "russian",
+            "brazilian", "european", "cheese", "african", "argentine",
+            "kosher", "irish", "lebanese", "belgian", "indonesian",
+            "alcohol-plus-food"
+        ]
     )
 
     st.subheader("🛒 Order Details")
