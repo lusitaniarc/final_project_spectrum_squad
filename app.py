@@ -85,7 +85,7 @@ with st.form("order_form"):
     with col6:
         order_date = st.date_input(
             "Order Date",
-            value=datetime.date.today(),
+            value=datetime.date(2015, 2, 6),
             min_value=datetime.date(2015, 1, 1),
             max_value=datetime.date.today()
         )
@@ -94,7 +94,7 @@ with st.form("order_form"):
     with col7:
         order_time = st.time_input(
             "Order Time",
-            value=datetime.time(18, 30)
+            value=datetime.time(22, 24)
         )
 
     submitted = st.form_submit_button("🔮 Predict Delivery Time")
