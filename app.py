@@ -1,7 +1,6 @@
 import streamlit as st
 import pandas as pd
 import numpy as np
-import xgboost as xgb
 import joblib
 import datetime
 
@@ -25,7 +24,7 @@ final_features = joblib.load("final_features.pkl")
 # ======================
 st.title("🚚 Delivery Time Prediction")
 st.caption(
-    "A machine learning–based application to estimate food delivery time "
+    "Machine learning–based application to estimate food delivery time "
     "based on order details and system conditions."
 )
 
@@ -39,23 +38,26 @@ with st.form("order_form"):
 
     market_id = st.selectbox("Market ID", [1, 2, 3, 4, 5, 6])
     order_protocol = st.selectbox("Order Protocol", [1, 2, 3, 4, 5, 6, 7])
+
     store_primary_category = st.selectbox(
         "Store Category",
-        ["american", "mexican", "unknown", "indian", "italian", "sandwich",
-            "thai", "cafe", "salad", "pizza", "chinese", "singaporean",
-            "burger", "breakfast", "mediterranean", "japanese", "greek",
-            "catering", "filipino", "convenience-store", "other", "korean",
-            "vegan", "asian", "barbecue", "fast", "dessert", "smoothie",
-            "seafood", "vietnamese", "cajun", "steak", "middle-eastern",
-            "soup", "vegetarian", "persian", "sushi", "latin-american",
-            "hawaiian", "chocolate", "burmese", "british", "nepalese", "pasta",
-            "alcohol", "dim-sum", "peruvian", "turkish", "malaysian",
-            "ethiopian", "afghan", "bubble-tea", "german", "french",
-            "caribbean", "gluten-free", "comfort-food", "gastropub",
-            "pakistani", "moroccan", "spanish", "southern", "tapas", "russian",
-            "brazilian", "european", "cheese", "african", "argentine",
-            "kosher", "irish", "lebanese", "belgian", "indonesian",
-            "alcohol-plus-food"
+        [
+            "afghan", "african", "alcohol", "alcohol-plus-food", "american",
+            "argentine", "asian", "barbecue", "belgian", "breakfast",
+            "british", "brazilian", "bubble-tea", "burmese", "cafe",
+            "cajun", "caribbean", "catering", "cheese", "chinese",
+            "chocolate", "comfort-food", "convenience-store",
+            "dessert", "dim-sum", "european", "ethiopian", "fast",
+            "french", "gastropub", "german", "gluten-free", "greek",
+            "hawaiian", "indian", "indonesian", "irish", "italian",
+            "japanese", "korean", "kosher", "latin-american", "lebanese",
+            "malaysian", "mediterranean", "mexican", "middle-eastern",
+            "moroccan", "nepalese", "other", "pakistani", "pasta",
+            "persian", "peruvian", "pizza", "russian", "salad",
+            "sandwich", "seafood", "singaporean", "smoothie", "soup",
+            "southern", "spanish", "steak", "sushi", "tapas",
+            "thai", "turkish", "unknown", "vegan", "vegetarian",
+            "vietnamese"
         ]
     )
 
@@ -79,12 +81,21 @@ with st.form("order_form"):
         total_outstanding_orders = st.number_input("Outstanding Orders", 0, 300, 60)
 
     st.subheader("⏰ Order Time")
+    col6, col7 = st.columns(2)
+    with col6:
+        order_date = st.date_input(
+            "Order Date",
+            value=datetime.date.today(),
+            min_value=datetime.date(2015, 1, 1),
+            max_value=datetime.date.today()
+        )
 
-    # ✅ Human-friendly time picker (HH:MM)
-    order_time = st.time_input(
-        "Order Time",
-        value=datetime.time(18, 30)
-    )
+
+    with col7:
+        order_time = st.time_input(
+            "Order Time",
+            value=datetime.time(18, 30)
+        )
 
     submitted = st.form_submit_button("🔮 Predict Delivery Time")
 
@@ -92,13 +103,14 @@ with st.form("order_form"):
 # PREDICTION PIPELINE
 # ======================
 if submitted:
-    # Time processing
-    order_hour = order_time.hour
-    order_minute = order_time.minute
+    # ----------------------
+    # Combine date & time
+    # ----------------------
+    created_at = datetime.datetime.combine(order_date, order_time)
 
-    is_rush_hour = 1 if order_hour in [10, 11, 12, 13, 14, 15] else 0
-
-    # Base dataframe (sesuai training)
+    # ----------------------
+    # Base DataFrame
+    # ----------------------
     new_df = pd.DataFrame([{
         "market_id": market_id,
         "order_protocol": order_protocol,
@@ -111,15 +123,23 @@ if submitted:
         "total_onshift_partners": total_onshift_partners,
         "total_busy_partners": total_busy_partners,
         "total_outstanding_orders": total_outstanding_orders,
-        "order_hour": order_hour,
-        "is_rush_hour": is_rush_hour
+        "created_at": pd.to_datetime(created_at)
     }])
 
-    # ======================
+    # ----------------------
     # Feature Engineering
-    # ======================
+    # ----------------------
+    new_df["order_hour"] = new_df["created_at"].dt.hour
+    new_df["day_of_week"] = new_df["created_at"].dt.dayofweek
+    new_df["is_weekend"] = (new_df["day_of_week"] >= 5).astype(int)
+
     new_df["load_ratio"] = (
         new_df["total_outstanding_orders"] /
+        (new_df["total_onshift_partners"] + 1)
+    )
+
+    new_df["busy_partners_ratio"] = (
+        new_df["total_busy_partners"] /
         (new_df["total_onshift_partners"] + 1)
     )
 
@@ -128,31 +148,30 @@ if submitted:
         (new_df["total_items"] + 1)
     )
 
-    new_df["rush_load"] = new_df["load_ratio"] * new_df["is_rush_hour"]
-    new_df["value_density"] = new_df["subtotal"] / (new_df["total_items"] + 1)
+    new_df["rush_load"] = new_df["load_ratio"] * new_df["is_weekend"]
 
-    new_df["log_subtotal"] = np.log1p(new_df["subtotal"])
-    new_df["log_load_ratio"] = np.log1p(new_df["load_ratio"].clip(lower=0))
-
-    # ======================
+    # ----------------------
     # Encoding
-    # ======================
+    # ----------------------
     new_enc = pd.get_dummies(
         new_df,
         columns=["market_id", "order_protocol", "store_primary_category"],
         drop_first=True
     )
 
-    # ======================
-    # Align features
-    # ======================
+    # ----------------------
+    # Align Features
+    # ----------------------
     new_enc = new_enc.reindex(columns=final_features, fill_value=0)
 
-    # ======================
+    # ----------------------
     # Predict
-    # ======================
+    # ----------------------
     pred = model.predict(new_enc)[0]
 
+    # ======================
+    # OUTPUT
+    # ======================
     st.markdown("---")
 
     st.metric(
@@ -161,6 +180,6 @@ if submitted:
     )
 
     st.caption(
-        f"🕒 Order Time: {order_hour:02d}:{order_minute:02d} | "
-        f"Rush Hour: {'Yes' if is_rush_hour else 'No'}"
+        f"🕒 Order Date & Time: {created_at.strftime('%Y-%m-%d %H:%M')} | "
+        f"Weekend: {'Yes' if new_df['is_weekend'].iloc[0] == 1 else 'No'}"
     )
