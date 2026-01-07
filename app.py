@@ -92,10 +92,10 @@ with st.form("order_form"):
 
 
     with col7:
-        order_time = st.time_input(
+        order_time = st.time_input
             "Order Time",
             value=datetime.time(22, 24)
-        )
+        
 
     submitted = st.form_submit_button("🔮 Predict Delivery Time")
 
